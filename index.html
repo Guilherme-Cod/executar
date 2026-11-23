@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EXECUTAR | Gerador de carta</title>
+  <style>
+    :root {
+      --navy:#1d285f; --navy-deep:#17204f; --ink:#202541; --muted:#78809a;
+      --line:#e5e8f0; --surface:#fff; --canvas:#f4f5fa; --green:#25d7a0;
+      --green-dark:#123c3b; --shadow:0 14px 35px rgba(26,34,80,.08);
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--canvas); font:15px/1.5 "Aptos", "Segoe UI", "Trebuchet MS", Arial, sans-serif; }
+    .topbar { min-height:74px; padding:14px clamp(20px,5vw,64px); display:flex; align-items:center; gap:12px; background:var(--navy); color:#fff; }
+    .logo-symbol { width:34px; height:34px; display:grid; place-items:center; border-radius:11px; background:#ffffff16; border:1px solid #ffffff55; color:#fff; font-size:19px; font-weight:800; }
+    .logo-word { color:#fff; font-size:18px; line-height:1; font-weight:800; letter-spacing:.035em; }
+    .shell { max-width:1320px; margin:0 auto; padding:34px clamp(18px,4vw,54px) 48px; }
+    .page-heading { margin-bottom:22px; }
+    .page-heading h1 { margin:0; color:#20264f; font-size:clamp(25px,3vw,34px); line-height:1.15; letter-spacing:-.035em; }
+    .page-heading p { margin:8px 0 0; color:var(--muted); font-size:14px; }
+    .layout { display:grid; grid-template-columns:minmax(310px,.88fr) minmax(460px,1.12fr); align-items:start; gap:22px; }
+    .form-card,.preview-card { background:var(--surface); border:1px solid #eaecf3; border-radius:20px; box-shadow:var(--shadow); }
+    .form-card { padding:24px; }
+    .card-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:20px; }
+    .card-heading h2 { margin:0; font-size:17px; letter-spacing:-.02em; }
+    .card-heading p { margin:5px 0 0; color:var(--muted); font-size:12px; }
+    .step { padding:5px 9px; border-radius:999px; background:#eff1fa; color:#555f94; font-size:11px; font-weight:700; white-space:nowrap; }
+    .field { min-width:0; margin-top:16px; }
+    .field label { display:block; margin-bottom:7px; color:#515a73; font-size:12px; font-weight:700; }
+    .field input,.field select { width:100%; height:44px; padding:0 13px; border:1px solid #e1e5ee; border-radius:13px; outline:none; background:#fbfcfe; color:#242b44; font:14px "Aptos","Segoe UI",Arial,sans-serif; transition:border-color .15s,box-shadow .15s,background .15s; }
+    .field input::placeholder { color:#a0a6b7; }
+    .field input:focus,.field select:focus { border-color:#8295dc; background:#fff; box-shadow:0 0 0 3px #8798dc25; }
+    .field input[readonly] { background:#f5f6fa; color:#535c73; }
+    .two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .location-grid { display:grid; grid-template-columns:155px 1fr; gap:14px; }
+    .suggest-wrap { position:relative; }
+    .suggestions { position:absolute; z-index:5; top:calc(100% - 1px); left:0; right:0; max-height:220px; overflow:auto; padding:5px; border:1px solid #e2e6ef; border-radius:13px; background:#fff; box-shadow:0 12px 30px rgba(28,36,81,.14); }
+    .suggestions[hidden] { display:none; }
+    .suggestions button { width:100%; padding:9px 10px; border:0; border-radius:9px; background:#fff; color:#2b314a; text-align:left; font:13px "Aptos","Segoe UI",Arial,sans-serif; cursor:pointer; }
+    .suggestions button:hover,.suggestions button.active { background:#f0f2fb; color:var(--navy); }
+    .suggestions .empty { padding:10px; color:var(--muted); font-size:12px; }
+    .field-help { min-height:17px; margin:6px 2px 0; color:#8a91a4; font-size:11px; }
+    .form-divider { margin:21px 0 17px; border:0; border-top:1px solid #edf0f5; }
+    .preview-card { padding:20px; background:#f9faff; }
+    .preview-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 2px 15px; }
+    .preview-title { display:flex; align-items:center; gap:9px; }
+    .preview-dot { width:8px; height:8px; border-radius:50%; background:#30cf9c; box-shadow:0 0 0 4px #30cf9c25; }
+    .preview-title strong { font-size:13px; }
+    .paper { width:min(100%,690px); min-height:850px; margin:0 auto; padding:78px clamp(36px,6vw,76px) 56px; border:1px solid #eef0f4; background:#fff; box-shadow:0 7px 22px rgba(31,39,79,.07); }
+    .paper-rule { width:46px; height:3px; margin:0 auto 27px; border:0; border-radius:2px; background:#343d77; }
+    .paper h2 { margin:0; text-align:center; font-family:"Aptos","Segoe UI",Arial,sans-serif; font-size:17px; line-height:1.45; font-weight:700; letter-spacing:.005em; }
+    .letter-body { margin-top:62px; color:#24262a; font:15px/2 "Aptos","Segoe UI",Arial,sans-serif; text-align:justify; }
+    .letter-body p { margin:0; text-indent:28px; }
+    .letter-location { min-height:24px; margin:48px 0 0; color:#24262a; text-align:right; font:14px "Aptos","Segoe UI",Arial,sans-serif; }
+    .letter-location.is-empty { color:#a3a6ae; }
+    .signature { width:72%; margin:94px auto 0; text-align:center; }
+    .signature-line { border-top:1px solid #666; }
+    .signature-label { margin-top:8px; color:#4b4e55; font:12px "Aptos","Segoe UI",Arial,sans-serif; }
+    .toolbar { display:flex; justify-content:flex-end; align-items:center; gap:12px; margin-top:16px; }
+    button.action { min-height:43px; padding:0 18px; border:1px solid #dfe3ec; border-radius:13px; background:#fff; color:#4e5670; font:700 13px "Aptos","Segoe UI",Arial,sans-serif; cursor:pointer; }
+    button.action:hover { background:#f3f5fa; }
+    button.primary { border-color:transparent; background:var(--green); color:var(--green-dark); box-shadow:0 5px 12px #25d7a033; }
+    button.primary:hover { background:#18c895; }
+    .live-status { min-height:20px; margin:8px 2px 0; color:#9b453f; font-size:12px; }
+    @media (max-width:980px) { .layout { grid-template-columns:1fr; } }
+    @media (max-width:560px) {
+      .shell { padding:25px 13px 30px; }
+      .form-card { padding:18px; border-radius:17px; }
+      .preview-card { padding:12px; border-radius:17px; }
+      .two-col { grid-template-columns:1fr; gap:0; }
+      .location-grid { grid-template-columns:120px 1fr; gap:10px; }
+      .paper { min-height:690px; padding:49px 27px 42px; }
+      .letter-body { font-size:14px; line-height:1.85; }
+      .signature { width:86%; margin-top:72px; }
+      .toolbar button { width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="logo-symbol" aria-hidden="true">e</div>
+    <div class="logo-word">EXECUTAR</div>
+  </header>
+
+  <main class="shell">
+    <div class="page-heading">
+      <h1>Monte a carta do cliente</h1>
+      <p>Preencha os dados e confira o documento ao lado. A prévia acompanha suas alterações.</p>
+    </div>
+
+    <div class="layout">
+      <section class="form-card" aria-labelledby="form-heading">
+        <div class="card-heading">
+          <div><h2 id="form-heading">Dados para a carta</h2><p>O nome e o CPF aparecem também no documento.</p></div>
+          <span class="step">1 de 1</span>
+        </div>
+        <div class="field">
+          <label for="nome">Nome completo</label>
+          <input id="nome" type="text" placeholder="Digite o nome completo" autocomplete="off">
+        </div>
+        <div class="two-col">
+          <div class="field">
+            <label for="cpf">CPF</label>
+            <input id="cpf" type="text" placeholder="000.000.000-00" inputmode="numeric" autocomplete="off" maxlength="14">
+          </div>
+          <div class="field">
+            <label for="data">Data da carta</label>
+            <input id="data" type="text" readonly aria-label="Data preenchida automaticamente">
+          </div>
+        </div>
+        <hr class="form-divider">
+        <div class="card-heading" style="margin-bottom:10px">
+          <div><h2>Local da assinatura</h2><p>Escolha o estado para buscar a cidade.</p></div>
+        </div>
+        <div class="location-grid">
+          <div class="field suggest-wrap" style="margin-top:0">
+            <label for="estado">Estado</label>
+            <input id="estado" type="text" placeholder="Digite o estado" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="estados-sugestoes">
+            <div id="estados-sugestoes" class="suggestions" role="listbox" hidden></div>
+          </div>
+          <div class="field suggest-wrap" style="margin-top:0">
+            <label for="cidade">Cidade</label>
+            <input id="cidade" type="text" placeholder="Escolha o estado primeiro" disabled autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cidades-sugestoes">
+            <div id="cidades-sugestoes" class="suggestions" role="listbox" hidden></div>
+            <div id="cidade-ajuda" class="field-help" aria-live="polite">Selecione SP ou RS para começar.</div>
+          </div>
+        </div>
+        <div id="status" class="live-status" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="preview-card" aria-label="Prévia da carta">
+        <div class="preview-header">
+          <div class="preview-title"><i class="preview-dot" aria-hidden="true"></i><strong>Prévia da carta</strong></div>
+        </div>
+        <article class="paper">
+          <hr class="paper-rule">
+          <h2>CARTA DE CANCELAMENTO DE AVALIAÇÃO DE RISCO</h2>
+          <div class="letter-body">
+            <p>Eu, <span id="nome-previa">[nome completo]</span>, inscrito(a) no CPF sob o nº <span id="cpf-previa">[CPF]</span>, solicito o cancelamento da avaliação de risco do crédito imobiliário que possuo junto à Caixa Econômica Federal.</p>
+          </div>
+          <p id="local-data" class="letter-location is-empty">[Cidade/UF], [data]</p>
+          <div class="signature">
+            <div class="signature-line"></div>
+            <div class="signature-label">Assinatura do(a) solicitante</div>
+          </div>
+        </article>
+        <div class="toolbar">
+          <button id="gerar" class="action primary" type="button">Gerar carta PDF</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const nome = document.getElementById('nome');
+    const cpf = document.getElementById('cpf');
+    const data = document.getElementById('data');
+    const estado = document.getElementById('estado');
+    const cidade = document.getElementById('cidade');
+    const estadosSugestoes = document.getElementById('estados-sugestoes');
+    const cidadesSugestoes = document.getElementById('cidades-sugestoes');
+    const cidadeAjuda = document.getElementById('cidade-ajuda');
+    const localData = document.getElementById('local-data');
+    const status = document.getElementById('status');
+    const estados = [
+      { codigo:'35', sigla:'SP', nome:'São Paulo' },
+      { codigo:'43', sigla:'RS', nome:'Rio Grande do Sul' }
+    ];
+    let estadoAtivo = null;
+    let municipios = [];
+    let listaCarregada = false;
+    let indiceEstado = -1;
+    let indiceCidade = -1;
+    let dataDocumento = new Date();
+
+    function normalizar(texto) {
+      return String(texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').trim();
+    }
+    function dataCurta(d) {
+      return new Intl.DateTimeFormat('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' }).format(d);
+    }
+    function dataLonga(d) {
+      return new Intl.DateTimeFormat('pt-BR', { day:'numeric', month:'long', year:'numeric' }).format(d);
+    }
+    data.value = dataCurta(dataDocumento);
+
+    function atualizarCarta() {
+      document.getElementById('nome-previa').textContent = nome.value.trim() || '[nome completo]';
+      document.getElementById('cpf-previa').textContent = cpf.value.trim() || '[CPF]';
+      if (estadoAtivo && cidade.value.trim()) {
+        localData.textContent = `${cidade.value.trim()}/${estadoAtivo.sigla}, ${dataLonga(dataDocumento)}.`;
+        localData.classList.remove('is-empty');
+      } else {
+        localData.textContent = '[Cidade/UF], [data]';
+        localData.classList.add('is-empty');
+      }
+    }
+    nome.addEventListener('input', atualizarCarta);
+    cpf.addEventListener('input', () => {
+      const digits = cpf.value.replace(/\D/g, '').slice(0, 11);
+      cpf.value = digits.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+      atualizarCarta();
+    });
+
+    function fechar(lista, campo) {
+      lista.hidden = true;
+      campo.setAttribute('aria-expanded', 'false');
+    }
+    function mostrarEstados() {
+      const termo = normalizar(estado.value);
+      estadosSugestoes.replaceChildren();
+      indiceEstado = -1;
+      const achados = estados.filter(item => !termo || normalizar(item.nome).includes(termo) || normalizar(item.sigla).includes(termo));
+      achados.forEach((item, indice) => {
+        const opcao = document.createElement('button');
+        opcao.type = 'button'; opcao.setAttribute('role','option');
+        opcao.textContent = `${item.nome} (${item.sigla})`;
+        opcao.addEventListener('mousedown', event => event.preventDefault());
+        opcao.addEventListener('click', () => selecionarEstado(item));
+        estadosSugestoes.appendChild(opcao);
+      });
+      if (!achados.length) {
+        const vazio = document.createElement('div'); vazio.className='empty'; vazio.textContent='Estado não encontrado.'; estadosSugestoes.appendChild(vazio);
+      }
+      estadosSugestoes.hidden = false;
+      estado.setAttribute('aria-expanded','true');
+    }
+    async function selecionarEstado(item) {
+      estadoAtivo = item;
+      estado.value = item.nome;
+      fechar(estadosSugestoes, estado);
+      cidade.value = '';
+      cidade.disabled = false;
+      cidade.placeholder = 'Digite a cidade';
+      municipios = [];
+      listaCarregada = false;
+      fechar(cidadesSugestoes, cidade);
+      cidadeAjuda.textContent = 'Carregando cidades…';
+      status.textContent = '';
+      atualizarCarta();
+      try {
+        const resposta = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${item.codigo}/municipios`);
+        if (!resposta.ok) throw new Error('Lista indisponível');
+        const dados = await resposta.json();
+        municipios = dados.map(municipio => municipio.nome);
+        listaCarregada = true;
+        cidadeAjuda.textContent = 'Digite sem acento; selecione a cidade sugerida.';
+      } catch (_) {
+        cidadeAjuda.textContent = 'Sugestões indisponíveis. Você ainda pode digitar a cidade.';
+      }
+      cidade.focus();
+    }
+    estado.addEventListener('focus', mostrarEstados);
+    estado.addEventListener('input', () => {
+      const termo = normalizar(estado.value);
+      estadoAtivo = null;
+      cidade.value = '';
+      cidade.disabled = true;
+      cidade.placeholder = 'Escolha o estado primeiro';
+      municipios = [];
+      listaCarregada = false;
+      fechar(cidadesSugestoes, cidade);
+      cidadeAjuda.textContent = 'Selecione SP ou RS para começar.';
+      atualizarCarta();
+      const exato = estados.find(item => normalizar(item.nome) === termo || normalizar(item.sigla) === termo);
+      if (exato) { selecionarEstado(exato); return; }
+      mostrarEstados();
+    });
+    estado.addEventListener('keydown', event => {
+      if (estadosSugestoes.hidden) return;
+      const opcoes = Array.from(estadosSugestoes.querySelectorAll('button'));
+      if (event.key === 'ArrowDown' && opcoes.length) { event.preventDefault(); indiceEstado = (indiceEstado + 1) % opcoes.length; }
+      else if (event.key === 'ArrowUp' && opcoes.length) { event.preventDefault(); indiceEstado = (indiceEstado - 1 + opcoes.length) % opcoes.length; }
+      else if (event.key === 'Enter' && indiceEstado >= 0 && opcoes[indiceEstado]) { event.preventDefault(); opcoes[indiceEstado].click(); }
+      else if (event.key === 'Enter') {
+        const exato = estados.find(item => normalizar(item.nome) === normalizar(estado.value) || normalizar(item.sigla) === normalizar(estado.value));
+        if (exato) { event.preventDefault(); selecionarEstado(exato); }
+      } else if (event.key === 'Escape') fechar(estadosSugestoes, estado);
+      opcoes.forEach((opcao, indice) => opcao.classList.toggle('active', indice === indiceEstado));
+    });
+    estado.addEventListener('blur', () => setTimeout(() => fechar(estadosSugestoes, estado), 120));
+
+    function mostrarCidades() {
+      const termo = normalizar(cidade.value);
+      cidadesSugestoes.replaceChildren();
+      indiceCidade = -1;
+      if (!termo || !municipios.length) { fechar(cidadesSugestoes, cidade); return; }
+      const exato = municipios.find(item => normalizar(item) === termo);
+      if (exato) cidade.value = exato;
+      const achados = municipios.filter(item => normalizar(item).includes(termo)).slice(0, 8);
+      achados.forEach(item => {
+        const opcao = document.createElement('button');
+        opcao.type = 'button'; opcao.setAttribute('role','option'); opcao.textContent = item;
+        opcao.addEventListener('mousedown', event => event.preventDefault());
+        opcao.addEventListener('click', () => selecionarCidade(item));
+        cidadesSugestoes.appendChild(opcao);
+      });
+      if (!achados.length) { const vazio=document.createElement('div'); vazio.className='empty'; vazio.textContent='Nenhuma cidade encontrada.'; cidadesSugestoes.appendChild(vazio); }
+      cidadesSugestoes.hidden = false;
+      cidade.setAttribute('aria-expanded','true');
+    }
+    function selecionarCidade(item) {
+      cidade.value = item;
+      fechar(cidadesSugestoes, cidade);
+      atualizarCarta();
+      cidade.focus();
+    }
+    cidade.addEventListener('input', () => { mostrarCidades(); atualizarCarta(); });
+    cidade.addEventListener('focus', mostrarCidades);
+    cidade.addEventListener('keydown', event => {
+      if (cidadesSugestoes.hidden) return;
+      const opcoes = Array.from(cidadesSugestoes.querySelectorAll('button'));
+      if (event.key === 'ArrowDown' && opcoes.length) { event.preventDefault(); indiceCidade = (indiceCidade + 1) % opcoes.length; }
+      else if (event.key === 'ArrowUp' && opcoes.length) { event.preventDefault(); indiceCidade = (indiceCidade - 1 + opcoes.length) % opcoes.length; }
+      else if (event.key === 'Enter' && indiceCidade >= 0 && opcoes[indiceCidade]) { event.preventDefault(); opcoes[indiceCidade].click(); }
+      else if (event.key === 'Escape') fechar(cidadesSugestoes, cidade);
+      opcoes.forEach((opcao, indice) => opcao.classList.toggle('active', indice === indiceCidade));
+    });
+    cidade.addEventListener('blur', () => setTimeout(() => fechar(cidadesSugestoes, cidade), 120));
+
+    function pdfEscape(texto) {
+      let latin1 = '';
+      for (const char of String(texto)) {
+        const code = char.codePointAt(0);
+        latin1 += String.fromCharCode(code <= 255 ? code : 63);
+      }
+      return latin1.replace(/([\\()])/g, '\\$1');
+    }
+    function medirTexto(texto, tamanho, negrito=false) {
+      const ctx = medirTexto.canvas || (medirTexto.canvas = document.createElement('canvas').getContext('2d'));
+      if (!ctx) return texto.length * tamanho * 0.52;
+      ctx.font = `${negrito ? 'bold ' : ''}${tamanho * 4/3}px Arial`;
+      return ctx.measureText(texto).width * 0.75;
+    }
+    function quebrarLinhas(texto, tamanho, largura, negrito=false) {
+      const palavras = texto.split(/\s+/);
+      const linhas = [];
+      let linha = '';
+      for (const palavra of palavras) {
+        const tentativa = linha ? `${linha} ${palavra}` : palavra;
+        if (linha && medirTexto(tentativa, tamanho, negrito) > largura) { linhas.push(linha); linha = palavra; }
+        else linha = tentativa;
+      }
+      if (linha) linhas.push(linha);
+      return linhas;
+    }
+    function textoPdf(texto, x, y, tamanho, font='F1', cinza='0.12 0.13 0.16', alinhamento='left') {
+      const deslocamento = alinhamento === 'center' ? medirTexto(texto, tamanho, font === 'F2') / 2 : alinhamento === 'right' ? medirTexto(texto, tamanho, font === 'F2') : 0;
+      return `${cinza} rg\nBT /${font} ${tamanho} Tf 1 0 0 1 ${(x-deslocamento).toFixed(2)} ${y.toFixed(2)} Tm (${pdfEscape(texto)}) Tj ET\n`;
+    }
+    function montarPdf() {
+      const nomeCliente = nome.value.trim();
+      const cpfCliente = cpf.value.trim();
+      const cidadeCliente = cidade.value.trim();
+      const uf = estadoAtivo.sigla;
+      const dataAtual = new Date();
+      const dataDeHoje = dataCurta(dataAtual);
+      const dataPorExtenso = dataLonga(dataAtual);
+      dataDocumento = dataAtual;
+      data.value = dataDeHoje;
+      atualizarCarta();
+
+      const pageWidth = 595.28;
+      const left = 68;
+      const right = pageWidth - 68;
+      const maxWidth = right - left;
+      let stream = '';
+      // Três marcas d'água pequenas e claras, incluídas apenas no PDF.
+      stream += 'q\n0.96 g\nBT /F2 22 Tf 0.9063 0.4226 -0.4226 0.9063 392 680 Tm (EXECUTAR) Tj ET\nBT /F2 22 Tf 0.9063 0.4226 -0.4226 0.9063 34 426 Tm (EXECUTAR) Tj ET\nBT /F2 22 Tf 0.9063 0.4226 -0.4226 0.9063 392 156 Tm (EXECUTAR) Tj ET\nQ\n';
+      const titulo1 = 'CARTA DE CANCELAMENTO DE AVALIAÇÃO';
+      const titulo2 = 'DE RISCO';
+      stream += textoPdf(titulo1, pageWidth/2, 754, 13, 'F2', '0.12 0.14 0.22', 'center');
+      stream += textoPdf(titulo2, pageWidth/2, 734, 13, 'F2', '0.12 0.14 0.22', 'center');
+      stream += '0.22 0.26 0.43 RG 1 w 68 710 m 527 710 l S\n';
+
+      const paragrafo = `Eu, ${nomeCliente}, inscrito(a) no CPF sob o nº ${cpfCliente}, solicito o cancelamento da avaliação de risco do crédito imobiliário que possuo junto à Caixa Econômica Federal.`;
+      const linhas = quebrarLinhas(paragrafo, 12, maxWidth, false);
+      let y = 635;
+      for (const linha of linhas) { stream += textoPdf(linha, left, y, 12, 'F1'); y -= 25; }
+
+      const local = `${cidadeCliente}/${uf}, ${dataPorExtenso}.`;
+      stream += textoPdf(local, right, 448, 11, 'F1', '0.16 0.17 0.20', 'right');
+      stream += '0.22 0.24 0.28 RG 0.8 w 154 335 m 441 335 l S\n';
+      stream += textoPdf('Assinatura do(a) solicitante', pageWidth/2, 315, 10, 'F1', '0.24 0.25 0.28', 'center');
+
+      const streamData = stream + '\n';
+      const objetos = [
+        '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+        '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+        '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>\nendobj\n',
+        '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n',
+        '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n',
+        `6 0 obj\n<< /Length ${streamData.length} >>\nstream\n${streamData}endstream\nendobj\n`
+      ];
+      let pdf = '%PDF-1.4\n';
+      const offsets = [0];
+      objetos.forEach(objeto => { offsets.push(pdf.length); pdf += objeto; });
+      const xref = pdf.length;
+      pdf += `xref\n0 ${objetos.length+1}\n0000000000 65535 f \n`;
+      for (let i=1; i<offsets.length; i++) pdf += `${String(offsets[i]).padStart(10,'0')} 00000 n \n`;
+      pdf += `trailer\n<< /Size ${objetos.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+      const bytes = new Uint8Array(pdf.length);
+      for (let i=0; i<pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 255;
+      return bytes;
+    }
+    document.getElementById('gerar').addEventListener('click', () => {
+      status.textContent = '';
+      if (!nome.value.trim() || !cpf.value.trim()) { status.textContent = 'Preencha o nome e o CPF para gerar a carta.'; return; }
+      if (cpf.value.replace(/\D/g,'').length !== 11) { status.textContent = 'Confira o CPF: ele precisa ter 11 números.'; cpf.focus(); return; }
+      if (!estadoAtivo) { status.textContent = 'Digite e escolha São Paulo ou Rio Grande do Sul.'; estado.focus(); return; }
+      if (!cidade.value.trim()) { status.textContent = 'Escolha ou digite a cidade.'; cidade.focus(); return; }
+      const cidadeCanonica = municipios.find(item => normalizar(item) === normalizar(cidade.value));
+      if (listaCarregada && !cidadeCanonica) { status.textContent = 'Escolha uma cidade válida para o estado selecionado.'; cidade.focus(); return; }
+      if (cidadeCanonica) cidade.value = cidadeCanonica;
+      atualizarCarta();
+      const bytes = montarPdf();
+      const blob = new Blob([bytes], { type:'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const primeiroNome = nome.value.trim().split(/\s+/)[0].replace(/[\\/:*?"<>|]/g, '');
+      link.download = `Carta de Cancelamento - ${primeiroNome}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      status.textContent = 'Carta gerada e baixada em PDF.';
+    });
+
+    atualizarCarta();
+  </script>
+</body>
+</html>
